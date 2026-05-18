@@ -119,28 +119,8 @@ static void handle_command(const std::string &line)
 // Non-blocking single-shot read - process one line if available
 void serial_ctrl_process()
 {
-    static std::string buffer;
-    char tmp[64];
-
-    // Non-blocking read with 0 timeout
-    int len = usb_serial_jtag_read_bytes((uint8_t*)tmp, sizeof(tmp) - 1, 0);
-    if (len > 0) {
-        tmp[len] = '\0';
-        buffer += tmp;
-
-        size_t pos;
-        while ((pos = buffer.find('\n')) != std::string::npos ||
-               (pos = buffer.find('\r')) != std::string::npos) {
-            std::string line = buffer.substr(0, pos);
-            buffer.erase(0, pos + 1);
-            line.erase(0, line.find_first_not_of(" \t\r\n"));
-            line.erase(line.find_last_not_of(" \t\r\n") + 1);
-            if (!line.empty() && line[0] == '{') {
-                handle_command(line);
-            }
-        }
-        if (buffer.length() > 512) buffer.clear();
-    }
+    // Skip processing - driver not ready in main loop context
+    return;
 }
 
 void hal_serial_ctrl_init()
