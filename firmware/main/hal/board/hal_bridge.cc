@@ -112,14 +112,10 @@ void start_xiaozhi_app()
 {
     set_xiaozhi_mode(true);
 
-    // Set default WebSocket URL if not configured
-    Settings ws_settings("websocket", false);
-    std::string existing_url = ws_settings.GetString("url");
-    if (existing_url.empty()) {
-        Settings ws_write("websocket", true);
-        ws_write.SetString("url", "wss://slightly-varmint-coastal.ngrok-free.dev/");
-        ESP_LOGI(_tag, "Set default websocket URL to ngrok");
-    }
+    // Force-set WebSocket URL to our gateway
+    Settings ws_write("websocket", true);
+    ws_write.SetString("url", "wss://slightly-varmint-coastal.ngrok-free.dev/");
+    ESP_LOGI(_tag, "WebSocket URL set to ngrok gateway");
 
     // Initialize and run the application
     auto& app = Application::GetInstance();
