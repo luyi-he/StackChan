@@ -120,7 +120,7 @@ void start_xiaozhi_app()
     nvs_handle_t handle;
     esp_err_t err = nvs_open("websocket", NVS_READWRITE, &handle);
     if (err == ESP_OK) {
-        const char* url = "wss://slightly-varmint-coastal.ngrok-free.dev/";
+        const char* url = "ws://10.11.128.192:8765/";
         nvs_set_str(handle, "url", url);
         nvs_commit(handle);
         nvs_close(handle);
