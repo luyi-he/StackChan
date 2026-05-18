@@ -112,25 +112,11 @@ void start_xiaozhi_app()
 {
     set_xiaozhi_mode(true);
 
-    // Direct NVS write - bypass Settings class
-    nvs_handle_t handle;
-    esp_err_t err = nvs_open("websocket", NVS_READWRITE, &handle);
-    if (err == ESP_OK) {
-        const char* url = "wss://slightly-varmint-coastal.ngrok-free.dev/";
-        nvs_set_str(handle, "url", url);
-        nvs_commit(handle);
-        nvs_close(handle);
-        ESP_LOGI(_tag, "NVS websocket url set to: %s", url);
-    } else {
-        ESP_LOGE(_tag, "Failed to open NVS: %d", err);
-    }
-
     // Initialize and run the application
     auto& app = Application::GetInstance();
     app.Initialize();
     
     // Write NVS AFTER OTA check completes, BEFORE audio channel opens
-    // (OTA check writes the tenclass URL; we overwrite it here)
     nvs_handle_t handle;
     esp_err_t err = nvs_open("websocket", NVS_READWRITE, &handle);
     if (err == ESP_OK) {
