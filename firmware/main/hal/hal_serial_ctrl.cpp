@@ -25,7 +25,7 @@
 
 #include "hal.h"
 #include "cJSON.h"
-#include <driver/uart.h>
+#include <driver/usb_serial_jtag.h>
 #include <esp_log.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -42,8 +42,7 @@ void serial_ctrl_task(void *pvParameters);
 
 static void send_response(const std::string &json_response)
 {
-    // Send response via USB CDC (UART0 = console)
-    uart_write_bytes(UART_NUM_0, (json_response + "\n").c_str(), json_response.length() + 1);
+    usb_serial_jtag_write_bytes((const uint8_t*)(json_response + "\n").c_str(), json_response.length() + 1, portMAX_DELAY);
 }
 
 static void handle_command(const std::string &line)
@@ -177,26 +176,14 @@ static void handle_command(const std::string &line)
 
 void serial_ctrl_task(void *pvParameters)
 {
-    uart_config_t uart_config = {
-        .baud_rate = 115200,
-        .data_bits = UART_DATA_8_BITS,
-        .parity = UART_PARITY_DISABLE,
-        .stop_bits = UART_STOP_BITS_1,
-        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-    };
-
-    // Use UART_NUM_0 (USB CDC / console port)
-    ESP_ERROR_CHECK(uart_param_config(UART_NUM_0, &uart_config));
-    ESP_ERROR_CHECK(uart_set_pin(UART_NUM_0, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE,
-                                 UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
-
+    // USB Serial/JTAG is already initialized by ESP-IDF
     std::string buffer;
     char tmp[64];
 
     ESP_LOGI(TAG, "Serial control task started");
 
     while (1) {
-        int len = uart_read_bytes(UART_NUM_0, tmp, sizeof(tmp) - 1, pdMS_TO_TICKS(100));
+        int len = usb_serial_jtag_read_bytes((uint8_t*)tmp, sizeof(tmp) - 1, pdMS_TO_TICKS(100));
         if (len > 0) {
             tmp[len] = '\0';
             buffer += tmp;
