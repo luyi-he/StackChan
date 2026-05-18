@@ -1,7 +1,7 @@
 {
   "mqtt": {},
   "websocket": {
-    "url": "wss://slightly-varmint-coastal.ngrok-free.dev/",
+    "url": "ws://10.11.128.192:8765/",
     "version": 3
   }
 }
