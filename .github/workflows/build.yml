@@ -22,9 +22,10 @@ jobs:
           submodules: recursive
 
       - name: Fetch component repos
+        working-directory: ./firmware
         run: |
           pip install requests
-          cd firmware && python fetch_repos.py
+          python fetch_repos.py
 
       - name: ESP-IDF build
         uses: espressif/esp-idf-ci-action@v1
