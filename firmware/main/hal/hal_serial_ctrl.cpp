@@ -4,45 +4,25 @@
  * SPDX-License-Identifier: MIT
  *
  * USB Serial Control Interface - receives JSON commands via USB CDC
- * and forwards them to the hardware control layer.
- *
- * Commands (JSON, one per line):
- *   {"cmd":"set_head","yaw":45,"pitch":30,"speed":150}
- *   {"cmd":"get_head"}
- *   {"cmd":"set_led","index":0,"r":255,"g":0,"b":0}
- *   {"cmd":"set_all_leds","r":255,"g":0,"b":0}
- *   {"cmd":"clear_leds"}
- *   {"cmd":"set_servo_power","on":true}
- *   {"cmd":"get_battery"}
- *   {"cmd":"set_avatar","face":"happy"}
- *   {"cmd":"ping"}
- *   {"cmd":"set_volume","volume":80}
- *   {"cmd":"set_brightness","brightness":80}
- *
- * Response: {"ok":true} or {"ok":false,"error":"..."}
- * For get_* commands, response includes data: {"ok":true,"yaw":0,"pitch":0}
  */
 
 #include "hal.h"
 #include "cJSON.h"
-#include <driver/usb_serial_jtag.h>
 #include <esp_log.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include <driver/usb_serial_jtag.h>
 #include <stackchan/stackchan.h>
 #include <string>
 #include <cstring>
 
 static const char *TAG = "SerialCtrl";
 
-#define SERIAL_CTRL_BUF_SIZE 512
-
-// Forward declaration
-void serial_ctrl_task(void *pvParameters);
-
 static void send_response(const std::string &json_response)
 {
-    usb_serial_jtag_write_bytes((const uint8_t*)(json_response + "\n").c_str(), json_response.length() + 1, portMAX_DELAY);
+    usb_serial_jtag_write_bytes(
+        (const uint8_t*)(json_response + "\n").c_str(),
+        json_response.length() + 1, portMAX_DELAY);
 }
 
 static void handle_command(const std::string &line)
@@ -65,156 +45,105 @@ static void handle_command(const std::string &line)
 
     if (cmd == "ping") {
         send_response("{\"ok\":true,\"pong\":true}");
-
-    } else if (cmd == "set_head") {
+    }
+    else if (cmd == "set_head") {
         cJSON *yaw_json = cJSON_GetObjectItem(root, "yaw");
         cJSON *pitch_json = cJSON_GetObjectItem(root, "pitch");
         cJSON *speed_json = cJSON_GetObjectItem(root, "speed");
-
         int yaw = yaw_json && cJSON_IsNumber(yaw_json) ? yaw_json->valueint : -9999;
         int pitch = pitch_json && cJSON_IsNumber(pitch_json) ? pitch_json->valueint : -9999;
         int speed = speed_json && cJSON_IsNumber(speed_json) ? speed_json->valueint : 150;
-
-        try {
-            auto &motion = GetStackChan().motion();
-            LvglLockGuard lock;
-            if (pitch != -9999) {
-                motion.pitchServo().moveWithSpeed(pitch * 10, speed);
-            }
-            if (yaw != -9999) {
-                motion.yawServo().moveWithSpeed(yaw * 10, speed);
-            }
-            send_response("{\"ok\":true}");
-        } catch (const std::exception &e) {
-            std::string err = "{\"ok\":false,\"error\":\"";
-            err += e.what();
-            err += "\"}";
-            send_response(err);
-        }
-
-    } else if (cmd == "get_head") {
-        try {
-            auto &motion = GetStackChan().motion();
-            LvglLockGuard lock;
-            int yaw = motion.yawServo().getCurrentAngle() / 10;
-            int pitch = motion.pitchServo().getCurrentAngle() / 10;
-            char response[128];
-            snprintf(response, sizeof(response), "{\"ok\":true,\"yaw\":%d,\"pitch\":%d}", yaw, pitch);
-            send_response(response);
-        } catch (const std::exception &e) {
-            send_response("{\"ok\":false,\"error\":\"failed to read head angles\"}");
-        }
-
-    } else if (cmd == "set_led" || cmd == "set_all_leds") {
+        LvglLockGuard lock;
+        auto &motion = GetStackChan().motion();
+        if (pitch != -9999) motion.pitchServo().moveWithSpeed(pitch * 10, speed);
+        if (yaw != -9999) motion.yawServo().moveWithSpeed(yaw * 10, speed);
+        send_response("{\"ok\":true}");
+    }
+    else if (cmd == "get_head") {
+        LvglLockGuard lock;
+        auto &motion = GetStackChan().motion();
+        int yaw = motion.yawServo().getCurrentAngle() / 10;
+        int pitch = motion.pitchServo().getCurrentAngle() / 10;
+        char resp[128];
+        snprintf(resp, sizeof(resp), "{\"ok\":true,\"yaw\":%d,\"pitch\":%d}", yaw, pitch);
+        send_response(resp);
+    }
+    else if (cmd == "set_all_leds") {
         cJSON *r_json = cJSON_GetObjectItem(root, "r");
         cJSON *g_json = cJSON_GetObjectItem(root, "g");
         cJSON *b_json = cJSON_GetObjectItem(root, "b");
         int r = r_json && cJSON_IsNumber(r_json) ? r_json->valueint : 0;
         int g = g_json && cJSON_IsNumber(g_json) ? g_json->valueint : 0;
         int b = b_json && cJSON_IsNumber(b_json) ? b_json->valueint : 0;
-
-        if (cmd == "set_all_leds") {
-            LvglLockGuard lock;
-            GetStackChan().leftNeonLight().setColor(r, g, b);
-            GetStackChan().rightNeonLight().setColor(r, g, b);
-        } else {
-            cJSON *idx_json = cJSON_GetObjectItem(root, "index");
-            int idx = idx_json && cJSON_IsNumber(idx_json) ? idx_json->valueint : 0;
-            LvglLockGuard lock;
-            hal.setRgbColor(idx, r, g, b);
-            hal.refreshRgb();
-        }
+        LvglLockGuard lock;
+        GetStackChan().leftNeonLight().setColor(r, g, b);
+        GetStackChan().rightNeonLight().setColor(r, g, b);
         send_response("{\"ok\":true}");
-
-    } else if (cmd == "clear_leds") {
+    }
+    else if (cmd == "clear_leds") {
         LvglLockGuard lock;
         GetStackChan().leftNeonLight().setColor(0, 0, 0);
         GetStackChan().rightNeonLight().setColor(0, 0, 0);
         send_response("{\"ok\":true}");
-
-    } else if (cmd == "set_servo_power") {
-        cJSON *on_json = cJSON_GetObjectItem(root, "on");
-        bool on = on_json && cJSON_IsBool(on_json) ? cJSON_IsTrue(on_json) : false;
-        hal.setServoPowerEnabled(on);
-        send_response("{\"ok\":true}");
-
-    } else if (cmd == "get_battery") {
+    }
+    else if (cmd == "get_battery") {
         uint8_t level = hal.getBatteryLevel();
         bool charging = hal.isBatteryCharging();
-        char response[128];
-        snprintf(response, sizeof(response), "{\"ok\":true,\"level\":%u,\"charging\":%s}",
+        char resp[128];
+        snprintf(resp, sizeof(resp), "{\"ok\":true,\"level\":%u,\"charging\":%s}",
                  level, charging ? "true" : "false");
-        send_response(response);
-
-    } else if (cmd == "set_volume") {
-        cJSON *vol_json = cJSON_GetObjectItem(root, "volume");
-        if (vol_json && cJSON_IsNumber(vol_json)) {
-            hal.setSpeakerVolume(vol_json->valueint);
+        send_response(resp);
+    }
+    else if (cmd == "set_volume") {
+        cJSON *vol = cJSON_GetObjectItem(root, "volume");
+        if (vol && cJSON_IsNumber(vol)) {
+            hal.setSpeakerVolume(vol->valueint);
             send_response("{\"ok\":true}");
-        } else {
-            send_response("{\"ok\":false,\"error\":\"missing volume\"}");
         }
-
-    } else if (cmd == "set_brightness") {
-        cJSON *bri_json = cJSON_GetObjectItem(root, "brightness");
-        if (bri_json && cJSON_IsNumber(bri_json)) {
-            hal.setBackLightBrightness(bri_json->valueint);
+    }
+    else if (cmd == "set_brightness") {
+        cJSON *bri = cJSON_GetObjectItem(root, "brightness");
+        if (bri && cJSON_IsNumber(bri)) {
+            hal.setBackLightBrightness(bri->valueint);
             send_response("{\"ok\":true}");
-        } else {
-            send_response("{\"ok\":false,\"error\":\"missing brightness\"}");
         }
-
-    } else {
-        std::string err = "{\"ok\":false,\"error\":\"unknown command: ";
-        err += cmd;
-        err += "\"}";
+    }
+    else {
+        std::string err = "{\"ok\":false,\"error\":\"unknown command: " + cmd + "\"}";
         send_response(err);
     }
 
     cJSON_Delete(root);
 }
 
-void serial_ctrl_task(void *pvParameters)
+// Non-blocking single-shot read - process one line if available
+void serial_ctrl_process()
 {
-    // USB Serial/JTAG is already initialized by ESP-IDF
-    std::string buffer;
+    static std::string buffer;
     char tmp[64];
 
-    ESP_LOGI(TAG, "Serial control task started");
+    // Non-blocking read with 0 timeout
+    int len = usb_serial_jtag_read_bytes((uint8_t*)tmp, sizeof(tmp) - 1, 0);
+    if (len > 0) {
+        tmp[len] = '\0';
+        buffer += tmp;
 
-    while (1) {
-        int len = usb_serial_jtag_read_bytes((uint8_t*)tmp, sizeof(tmp) - 1, pdMS_TO_TICKS(100));
-        if (len > 0) {
-            tmp[len] = '\0';
-            buffer += tmp;
-
-            // Process complete lines
-            size_t pos;
-            while ((pos = buffer.find('\n')) != std::string::npos ||
-                   (pos = buffer.find('\r')) != std::string::npos) {
-                std::string line = buffer.substr(0, pos);
-                buffer.erase(0, pos + 1);
-
-                // Trim whitespace
-                line.erase(0, line.find_first_not_of(" \t\r\n"));
-                line.erase(line.find_last_not_of(" \t\r\n") + 1);
-
-                if (!line.empty() && line[0] == '{') {
-                    handle_command(line);
-                }
-            }
-
-            // Prevent buffer from growing indefinitely
-            if (buffer.length() > SERIAL_CTRL_BUF_SIZE) {
-                buffer.clear();
+        size_t pos;
+        while ((pos = buffer.find('\n')) != std::string::npos ||
+               (pos = buffer.find('\r')) != std::string::npos) {
+            std::string line = buffer.substr(0, pos);
+            buffer.erase(0, pos + 1);
+            line.erase(0, line.find_first_not_of(" \t\r\n"));
+            line.erase(line.find_last_not_of(" \t\r\n") + 1);
+            if (!line.empty() && line[0] == '{') {
+                handle_command(line);
             }
         }
-        vTaskDelay(pdMS_TO_TICKS(10));
+        if (buffer.length() > 512) buffer.clear();
     }
 }
 
 void hal_serial_ctrl_init()
 {
-    ESP_LOGI(TAG, "Initializing serial control interface");
-    xTaskCreate(serial_ctrl_task, "serial_ctrl", 4096, NULL, 5, NULL);
+    ESP_LOGI(TAG, "Serial control ready - call serial_ctrl_process() from main loop");
 }

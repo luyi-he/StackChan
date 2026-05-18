@@ -9,6 +9,7 @@
 #include <mooncake.h>
 #include <apps/apps.h>
 #include <hal/hal.h>
+#include <hal/hal_serial_ctrl.h>
 
 using namespace mooncake;
 using namespace smooth_ui_toolkit;
@@ -42,6 +43,9 @@ extern "C" void app_main(void)
         GetHAL().updateHeapStatusLog();
 
         GetMooncake().update();
+
+        // Process serial commands (non-blocking)
+        serial_ctrl_process();
 
         if (GetHAL().isXiaozhiStartRequested()) {
             break;

@@ -6,3 +6,4 @@
 #pragma once
 
 void hal_serial_ctrl_init();
+void serial_ctrl_process();
