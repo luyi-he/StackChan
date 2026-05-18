@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 #include "hal.h"
+#include "hal_serial_ctrl.h"
 #include <memory>
 #include <mooncake_log.h>
 #include <nvs_flash.h>
@@ -40,6 +41,9 @@ void Hal::init()
     imu_init();
     servo_init();
     lvgl_init();
+
+    // Initialize USB serial control interface
+    hal_serial_ctrl_init();
 }
 
 /* -------------------------------------------------------------------------- */
