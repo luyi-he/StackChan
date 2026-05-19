@@ -80,4 +80,4 @@ CONFIG_LV_BUILD_EXAMPLES=n
 CONFIG_LV_BUILD_DEMOS=n
 
 # Point OTA check to our GitHub JSON - this tells the device to use our WebSocket URL
-CONFIG_OTA_URL="https://raw.githubusercontent.com/luyi-he/StackChan/main/server/ota.json"
+CONFIG_OTA_URL="http://10.11.128.192:8080/"
