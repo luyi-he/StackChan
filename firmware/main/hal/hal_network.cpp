@@ -51,6 +51,15 @@ void Hal::startNetwork(std::function<void(std::string_view)> onLog)
         return;
     }
 
+    // Hardcoded WiFi for ShanghaiTech-IoT
+    {
+        wifi_config_t cfg = {};
+        strncpy((char*)cfg.sta.ssid, "ShanghaiTech-IoT", sizeof(cfg.sta.ssid));
+        strncpy((char*)cfg.sta.password, "3RUpmcb#", sizeof(cfg.sta.password));
+        esp_wifi_set_config(WIFI_IF_STA, &cfg);
+        mclog::tagInfo(_tag, "Hardcoded WiFi: ShanghaiTech-IoT");
+    }
+
     std::atomic<bool> network_connected = false;
 
     auto& board = Board::GetInstance();
