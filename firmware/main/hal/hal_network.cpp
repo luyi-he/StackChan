@@ -16,6 +16,7 @@
 #include <sys/time.h>
 #include <esp_sntp.h>
 #include <esp_wifi.h>
+#include <nvs_flash.h>
 #include <atomic>
 
 static std::string _tag           = "Network";
@@ -52,13 +53,17 @@ void Hal::startNetwork(std::function<void(std::string_view)> onLog)
         return;
     }
 
-    // Hardcoded WiFi for ShanghaiTech-IoT
+    // Hardcoded WiFi for ShanghaiTech-IoT — write to NVS before WiFi starts
     {
-        wifi_config_t cfg = {};
-        strncpy((char*)cfg.sta.ssid, "ShanghaiTech-IoT", sizeof(cfg.sta.ssid));
-        strncpy((char*)cfg.sta.password, "3RUpmcb#", sizeof(cfg.sta.password));
-        esp_wifi_set_config(WIFI_IF_STA, &cfg);
-        mclog::tagInfo(_tag, "Hardcoded WiFi: ShanghaiTech-IoT");
+        nvs_handle_t handle;
+        esp_err_t ret = nvs_open("nvs.net80211", NVS_READWRITE, &handle);
+        if (ret == ESP_OK) {
+            nvs_set_str(handle, "sta.ssid", "ShanghaiTech-IoT");
+            nvs_set_str(handle, "sta.passwd", "3RUpmcb#");
+            nvs_commit(handle);
+            nvs_close(handle);
+            mclog::tagInfo(_tag, "Hardcoded WiFi NVS: ShanghaiTech-IoT");
+        }
     }
 
     std::atomic<bool> network_connected = false;
