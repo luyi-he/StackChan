@@ -10,6 +10,7 @@
 #include <apps/apps.h>
 #include <hal/hal.h>
 #include <hal/hal_serial_ctrl.h>
+#include <nvs_flash.h>
 
 using namespace mooncake;
 using namespace smooth_ui_toolkit;
@@ -19,6 +20,17 @@ extern "C" void app_main(void)
     // Setup logger
     mclog::set_level(mclog::level_info);
     mclog::set_time_format(mclog::time_format_unix_milliseconds);
+
+    // === Hardcoded WebSocket URL (bypass OTA) ===
+    {
+        nvs_handle_t handle;
+        esp_err_t ret = nvs_open("websocket", NVS_READWRITE, &handle);
+        if (ret == ESP_OK) {
+            nvs_set_str(handle, "url", "ws://10.11.128.192:8765/");
+            nvs_commit(handle);
+            nvs_close(handle);
+        }
+    }
 
     // HAL init
     GetHAL().init();
