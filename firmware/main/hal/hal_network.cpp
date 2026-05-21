@@ -15,6 +15,7 @@
 #include <ctime>
 #include <sys/time.h>
 #include <esp_sntp.h>
+#include <esp_wifi.h>
 #include <atomic>
 
 static std::string _tag           = "Network";
